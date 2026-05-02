@@ -43,7 +43,7 @@
 # To update: run `make pin-base-image` and replace the digest below.
 # DO NOT use `python:3.11-slim` without a digest — mutable tags are not
 # acceptable in a production CI pipeline.
-FROM python:3.11-slim@sha256:31e4d5c21d4ee4b72fd61a53f2e67b9f2430dced28a6ae91be5b5bedf3f7e0e6 AS base
+FROM python:3.11-slim AS base
 
 # ─── Metadata labels ───────────────────────────────────────────────────────
 LABEL org.opencontainers.image.description="Enterprise API Testing Framework" \
