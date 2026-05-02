@@ -5,8 +5,8 @@
 # =============================================================================
 
 # --- Core HTTP & Testing ---
-requests==2.32.3
-pytest==8.3.4
+requests==2.33.0
+pytest==9.0.3
 pytest-timeout==2.3.1       # Global watchdog: catches hangs outside HTTP calls
 pytest-randomly==3.15.0     # Randomise test order → expose order-dependency bugs
 pytest-xdist==3.6.1         # Parallel execution with -n auto
@@ -21,7 +21,7 @@ jsonschema==4.23.0
 Faker==26.1.0               # Realistic, locale-aware test data generation
 
 # --- Cross-platform file locking (xdist health check coordination) ---
-filelock==3.16.1            # FileLock: works on Windows, Linux, macOS — no fcntl
+filelock==3.20.3            # FileLock: works on Windows, Linux, macOS — no fcntl
 
 # --- Redis (distributed circuit breaker for xdist) ---
 redis==5.0.8
@@ -30,7 +30,7 @@ redis==5.0.8
 tenacity==9.0.0             # Retry logic with pluggable wait strategies
 
 # --- Configuration & Security ---
-python-dotenv==1.0.1        # .env loading for local development only
+python-dotenv==1.2.2        # .env loading for local development only
 
 # --- Structured Logging ---
 structlog==24.4.0           # JSON-first structured logging pipeline
