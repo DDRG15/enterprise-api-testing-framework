@@ -1,0 +1,57 @@
+# =============================================================================
+# .dockerignore
+#
+# Prevents sensitive files and build noise from being copied into the image.
+# This is a SECURITY file as much as a performance file.
+# A .env file copied into a Docker image is a credential leak waiting to happen.
+# =============================================================================
+
+# --- Secrets: NEVER enter the image ---
+.env
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# --- Python build artifacts ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+dist/
+build/
+*.whl
+
+# --- Test output (generated at runtime, not baked in) ---
+logs/
+reports/
+allure-results/
+allure-report/
+.coverage
+coverage.xml
+htmlcov/
+
+# --- Version control ---
+.git/
+.gitignore
+.github/
+
+# --- Documentation (not needed at runtime) ---
+README.md
+PORTFOLIO.md
+docs/
+
+# --- Development configs ---
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# --- Docker files (no recursion) ---
+Dockerfile
+docker-compose.yml
+docker-compose.*.yml

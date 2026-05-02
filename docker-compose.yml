@@ -1,0 +1,187 @@
+# =============================================================================
+# docker-compose.yml — Enterprise API Testing Framework
+#
+# Services:
+#   redis      — Shared circuit breaker state for all xdist workers.
+#                Pinned to a digest for the same reasons as the Dockerfile.
+#   api-tests  — Full test suite (single process by default).
+#   parallel   — Profile: runs suite with -n 4 workers sharing Redis state.
+#   smoke      — Profile: fast pre-commit sanity check.
+#   edge       — Profile: boundary value and unicode edge cases.
+#
+# Usage:
+#   docker-compose up --build                        # Full suite
+#   docker-compose --profile parallel up --build     # 4 parallel workers
+#   docker-compose --profile smoke run smoke-tests   # Smoke only
+#   docker-compose down --volumes                    # Teardown + clean volumes
+#
+# Secret injection:
+#   Secrets live in .env (copy from .env.example). docker-compose reads it
+#   automatically. Secrets are NEVER in this file.
+# =============================================================================
+
+version: "3.9"
+
+volumes:
+  test-logs:
+  test-reports:
+  redis-data:
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # Redis — shared circuit breaker state
+  #
+  # Pinned to a digest for reproducibility (same reasoning as Dockerfile).
+  # Redis is used ONLY for circuit breaker state coordination between workers.
+  # It does not store any test data or secrets.
+  #
+  # Configuration:
+  #   - No persistence (--save ""): test-run state should not outlast a run.
+  #   - Memory limit: 64MB is more than enough for circuit breaker counters.
+  #   - Protected mode off: safe because it is bound to the internal network only,
+  #     never exposed on the host.
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7.2-alpine@sha256:8e8716f00de9d12f6e58e96e61050a5bc6ffc7ba5c5b9938d83c63a0ac4f7565
+    container_name: api-test-redis
+    command: >
+      redis-server
+        --save ""
+        --appendonly no
+        --maxmemory 64mb
+        --maxmemory-policy allkeys-lru
+        --protected-mode no
+        --loglevel warning
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    networks:
+      - test-net
+    restart: "no"
+    deploy:
+      resources:
+        limits:
+          memory: "96M"
+
+  # ---------------------------------------------------------------------------
+  # Primary service — full test suite, single process
+  # ---------------------------------------------------------------------------
+  api-tests:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: api-testing-framework:local
+    container_name: api-test-runner
+
+    depends_on:
+      redis:
+        condition: service_healthy
+
+    env_file:
+      - .env
+
+    environment:
+      # Redis URL is injected from the compose network — same as CI would use
+      # with a redis sidecar. Tests can now run with a shared circuit breaker.
+      REDIS_URL: redis://redis:6379/0
+
+      # Non-secret runtime config (safe to commit)
+      LOG_FILE: /app/logs/test_run.jsonl
+      LOG_LEVEL: INFO
+      REQUEST_CONNECT_TIMEOUT: "5"
+      REQUEST_READ_TIMEOUT: "20"
+      RETRY_MAX_ATTEMPTS: "3"
+      RETRY_BASE_DELAY_SECONDS: "1.0"
+      RETRY_MAX_DELAY_SECONDS: "30.0"
+      SLO_RESPONSE_TIME_MS: "3000"
+      CIRCUIT_BREAKER_FAILURE_THRESHOLD: "5"
+      CIRCUIT_BREAKER_RECOVERY_TIMEOUT_SECONDS: "60"
+      PYTHONUNBUFFERED: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+
+    volumes:
+      - ./logs:/app/logs
+      - ./reports:/app/reports
+
+    networks:
+      - test-net
+
+    command: >
+      python -m pytest
+        --tb=short
+        --verbose
+        --timeout=60
+
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: "512M"
+
+    restart: "no"
+
+  # ---------------------------------------------------------------------------
+  # Parallel profile — 4 xdist workers, all sharing Redis circuit breaker
+  #
+  # This is the proof that Fix 1 works:
+  #   - 4 workers sharing one Redis instance
+  #   - Circuit breaker threshold=5 is evaluated across all 4 workers combined
+  #   - health_check fires exactly once (file-system lock in conftest.py)
+  #
+  # Usage: docker-compose --profile parallel up --build
+  # ---------------------------------------------------------------------------
+  parallel-tests:
+    extends:
+      service: api-tests
+    profiles: ["parallel"]
+    container_name: api-parallel-runner
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      PYTHONUNBUFFERED: "1"
+    command: >
+      python -m pytest
+        -n 4
+        --tb=short
+        --verbose
+        --timeout=60
+
+  # ---------------------------------------------------------------------------
+  # Smoke profile — fast pre-commit gate (~30 seconds)
+  # ---------------------------------------------------------------------------
+  smoke-tests:
+    extends:
+      service: api-tests
+    profiles: ["smoke"]
+    container_name: api-smoke-runner
+    command: >
+      python -m pytest
+        -m smoke
+        --tb=short
+        --verbose
+        --timeout=30
+
+  # ---------------------------------------------------------------------------
+  # Edge profile — boundary/unicode tests only
+  # ---------------------------------------------------------------------------
+  edge-tests:
+    extends:
+      service: api-tests
+    profiles: ["edge"]
+    container_name: api-edge-runner
+    command: >
+      python -m pytest
+        tests/functional/test_bookings_crud.py::TestCreateBooking::test_create_booking_with_max_length_fields
+        tests/functional/test_bookings_crud.py::TestCreateBooking::test_create_booking_with_zero_price
+        tests/functional/test_bookings_crud.py::TestCreateBooking::test_create_booking_with_unicode_names
+        --tb=long
+        --verbose
+        --timeout=60
+
+networks:
+  test-net:
+    driver: bridge

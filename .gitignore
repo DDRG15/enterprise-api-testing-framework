@@ -1,0 +1,27 @@
+# Secrets — NEVER commit these
+.env
+*.pem
+*.key
+*.crt
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+dist/
+build/
+
+# Test outputs (uploaded as CI artifacts, not tracked in git)
+logs/
+reports/
+allure-results/
+allure-report/
+.coverage
+coverage.xml
+
+# IDE
+.vscode/
+.idea/
+*.swp

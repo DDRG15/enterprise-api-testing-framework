@@ -1,0 +1,42 @@
+# =============================================================================
+# requirements.txt
+# All versions are pinned for reproducibility across local, Docker, and CI.
+# Update policy: run `pip-audit` on every dependency bump before merging.
+# =============================================================================
+
+# --- Core HTTP & Testing ---
+requests==2.32.3
+pytest==8.3.4
+pytest-timeout==2.3.1       # Global watchdog: catches hangs outside HTTP calls
+pytest-randomly==3.15.0     # Randomise test order → expose order-dependency bugs
+pytest-xdist==3.6.1         # Parallel execution with -n auto
+pytest-html==4.1.1          # Self-contained HTML report artifact
+
+# --- Schema & Data Validation ---
+pydantic==2.8.2
+pydantic-settings==2.4.0    # Environment variable binding for FrameworkSettings
+jsonschema==4.23.0
+
+# --- Synthetic Data Generation ---
+Faker==26.1.0               # Realistic, locale-aware test data generation
+
+# --- Cross-platform file locking (xdist health check coordination) ---
+filelock==3.16.1            # FileLock: works on Windows, Linux, macOS — no fcntl
+
+# --- Redis (distributed circuit breaker for xdist) ---
+redis==5.0.8
+
+# --- Retry & Resilience ---
+tenacity==9.0.0             # Retry logic with pluggable wait strategies
+
+# --- Configuration & Security ---
+python-dotenv==1.0.1        # .env loading for local development only
+
+# --- Structured Logging ---
+structlog==24.4.0           # JSON-first structured logging pipeline
+
+# --- Reporting ---
+allure-pytest==2.13.5       # Allure-compatible report generation
+
+# --- Security Auditing (CI gate) ---
+pip-audit==2.7.3            # CVE scanning against PyPI advisory database
